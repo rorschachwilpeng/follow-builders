@@ -4,7 +4,7 @@
 // Follow Builders — Delivery Script
 // ============================================================================
 // Sends a digest to the user via their chosen delivery method.
-// Supports: Telegram bot, Email (via Resend), or stdout (default).
+// Supports: Telegram bot, Email (via Resend), DingTalk, or stdout (default).
 //
 // Usage:
 //   echo "digest text" | node deliver.js
@@ -17,6 +17,7 @@
 // Delivery methods:
 //   - "telegram": sends via Telegram Bot API (needs TELEGRAM_BOT_TOKEN + chat ID)
 //   - "email": sends via Resend API (needs RESEND_API_KEY + email address)
+//   - "dingtalk": sends via DingTalk Robot Webhook (needs DINGTALK_WEBHOOK_URL)
 //   - "stdout" (default): just prints to terminal
 // ============================================================================
 
@@ -122,6 +123,43 @@ async function sendTelegram(text, botToken, chatId) {
   }
 }
 
+// -- DingTalk Delivery -------------------------------------------------------
+
+// Sends the digest via DingTalk Robot Webhook.
+// The user provides their DingTalk webhook URL.
+async function sendDingTalk(text, webhookUrl) {
+  // DingTalk has a 20000 character limit per message
+  const MAX_LEN = 19900;
+  let message = text;
+  if (text.length > MAX_LEN) {
+    message = text.slice(0, MAX_LEN) + '\n\n...(内容已截断)';
+  }
+
+  const res = await fetch(webhookUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      msgtype: 'markdown',
+      markdown: {
+        title: 'AI Builders Digest',
+        text: message
+      }
+    })
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(`DingTalk API error: ${err.errmsg || JSON.stringify(err)}`);
+  }
+
+  const result = await res.json();
+  if (result.errcode !== 0) {
+    throw new Error(`DingTalk API error: ${result.errmsg}`);
+  }
+}
+
 // -- Email Delivery (Resend) -------------------------------------------------
 
 // Sends the digest via Resend's email API.
@@ -194,6 +232,18 @@ async function main() {
           status: 'ok',
           method: 'email',
           message: `Digest sent to ${toEmail}`
+        }));
+        break;
+      }
+
+      case 'dingtalk': {
+        const webhookUrl = delivery.webhookUrl || process.env.DINGTALK_WEBHOOK_URL;
+        if (!webhookUrl) throw new Error('DingTalk webhook URL not found in config.json or DINGTALK_WEBHOOK_URL env');
+        await sendDingTalk(digestText, webhookUrl);
+        console.log(JSON.stringify({
+          status: 'ok',
+          method: 'dingtalk',
+          message: 'Digest sent to DingTalk'
         }));
         break;
       }

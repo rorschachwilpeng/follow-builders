@@ -29,7 +29,7 @@ WhatsApp, etc.) with:
 The agent will ask you:
 - How often you want your digest (daily or weekly) and what time
 - What language you prefer
-- How you want it delivered (Telegram, email, or in-chat)
+- How you want it delivered (Telegram, email, DingTalk, or in-chat)
 
 No API keys needed — all content is fetched centrally.
 Your first digest arrives immediately after setup.
